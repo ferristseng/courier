@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Courier | Host</title>
+  <link href="/assets/css/style.css" rel="stylesheet">
+  <link href="/assets/css/normalize.css" rel="stylesheet"> 
+</head>
+<body>
+  <section id='main'>
+
+    <h4>Download:</h4>
+
+    <section id='download'>
+      <input id='url' value='' type='text' readonly />
+    </section>
+
+    <h4>Connections:</h4>
+
+    <section>
+      <dl id='connections'>
+      </dl>
+    </section>
+
+    <hr></hr>
+
+    <h4>Choose a file:</h4>
+
+    <section> 
+      <section id='info' class='hidden'>
+        <dl>
+          <dt>Name</dt><dd id='filename-val'></dd>
+          <dt>Type</dt><dd id='type-val'></dd>
+          <dt>Size</dt><dd id='size-val'></dd>
+          <dt>Chunks</dt><dd id='chunks-val'></dd>
+          <dt>Progress</dt><dd id='progress'></dd>
+        </dl>
+      </section>
+      <section>
+        <input type="file" id="file" name="file" disabled />
+      </section>
+    </section>
+
+  </section>
+  <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.10.1/jquery.min.js"></script>
+  <script src='/assets/js/courier.min.js'></script>
+  <script src='/assets/js/host.min.js'></script>
+</body>
+</html>
+
+
+
+

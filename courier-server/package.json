@@ -1,0 +1,11 @@
+{
+  "author": "Ferris Tseng",
+  "name": "courier",
+  "description": "browser-based p2p service",
+  "version": "0.1.0",
+  "dependencies": { 
+    "options":  ">=0.0.5",
+    "colors":   ">=0.6.0",
+    "ws":       ">=0.4"
+  }
+}

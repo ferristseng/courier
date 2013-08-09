@@ -1,0 +1,15 @@
+# Ignore nodejs directories
+# -------------------------
+
+**/node_modules
+
+# Ignore os files
+# ------------------------
+
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db

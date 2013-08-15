@@ -27,7 +27,7 @@ server.on('disconnect', function (ws) {
 // ==========================================
 
 server.on('clientId', function (data, ws) {
-  logger.log('new client: %s', data)
+  logger.log('new client: (%s, %s)', data, ws.room.name)
 });
 
 // ==========================================

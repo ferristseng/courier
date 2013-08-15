@@ -33,15 +33,16 @@ Signaling channel implemented with Websockets.
         super
    
       __send__: (event, data) ->
-        logger.log("Sending [event] #{event} [data] #{data}...")
+        logger.log("Sending [event] #{event}!")
         @ws.send(JSON.stringify({ type: event, data: data}))
 
       __onopen__: () ->
         @trigger('open')
 
       __onmessage__: (event) ->
-        e = JSON.parse(event)
-        @trigger('message')
+        e = JSON.parse(event.data)
+        logger.log("Received [event] #{e.type}!")
+        @trigger('message', e)
         @trigger(e.type, e.data)
 
       __onclose__: () ->

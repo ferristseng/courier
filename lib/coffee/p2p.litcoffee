@@ -22,6 +22,9 @@ Stores information about a file
       slice: (start, end) ->
         @f.slice(start, end)
 
+      getChunk: (num) ->
+        @slice(num * CHUNK_SIZE, (num + 1) * CHUNK_SIZE)
+
       end: () ->
         @read is @chunks
 
@@ -84,21 +87,21 @@ Used to create a new connection to send data to
 
     class P2PClientConnection extends P2PConnection
 
-      start: () ->
+      start: (callback) ->
+        self = @
         @peer = WebRTCImplementation.createPeer()
         @channel = WebRTCImplementation.createChannel(@peer)
-        WebRTCImplementation.createAnswer(@peer, (o) -> SignalingChannel.send(o))
-        @changeStatus(1)
+        @peer.createOffer((offer) ->
+          if callback
+            callback()
+            self.changeStatus(1))
 
 Used to create a new connection to receive data from
 
     class P2PHostConnection extends P2PConnection
 
-      constructor: (@token, @id) ->
+      constructor: () ->
         super
-        SignalingChannel.on('open', () ->
-          @join(token)
-          @send('clientId', id))
         @changeStatus(1)
 
       start: (offer) ->
@@ -118,7 +121,7 @@ Events:
 
       constructor: () ->
         self = @
-        @clients = []
+        @clients = {}
         @reader = new FileReader()
         @readChunk = (start, end) -> @reader.readAsArrayBuffer(@file.slice(start, end))
         @reader.onloadend = (event) ->
@@ -127,6 +130,7 @@ Events:
           if self.file.end()
             token = Token.generate()
             SignalingChannel.join(token)
+            self.__set_event_handlers__()
             self.trigger('channelJoin', token)
             self.trigger('fileEnd', self.file, token)
           else
@@ -141,6 +145,20 @@ Read in the file as a bunch of chunks. Store the chunks in local storage. The wa
         @readChunk(0, CHUNK_SIZE)
         @file
 
+Set the handling of certain events that are expected to be received by the host
+
+  * channelJoin: When the host joins the channel, send the token of the host to initialize the user as the host on the server.
+  * client#new:  When the host is notified of a new client, send that specific client an offer via the SignalingChannel
+
+      __set_event_handlers__: () ->
+        self = @
+        @on('channelJoin', (token) -> SignalingChannel.send('host#id', token))
+        SignalingChannel.on('client#new', (e) ->
+          self.clients[e.data] = new P2PClientConnection()
+          self.clients[e.data].start((offer) -> SignalingChannel.send('host#offer', { client: e.data, offer: offer })))
+
+Handle the client#new event received by the SignalingChannel
+
 Client
 ======
 
@@ -154,7 +172,11 @@ Client
         super
 
       connect: (token) ->
-        @host = new P2PHostConnection(token, @id)
+        self = @
+        @host = new P2PHostConnection()
+        SignalingChannel.on('open', () ->
+          @join(token)
+          @send('client#id', self.id))
       
     window.Host = Host
     window.Client = Client

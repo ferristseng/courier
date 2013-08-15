@@ -1,3 +1,7 @@
+Settings
+
+    window.Development = true
+
 Setup a general logger
 
     logger = new Logger('General')

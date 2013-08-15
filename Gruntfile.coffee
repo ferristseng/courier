@@ -40,7 +40,7 @@ module.exports = (grunt) ->
     nodemon:
       all:
         options:
-          file: 'server.js',
+          file: 'server.coffee',
           ignored_files: ['node_modules/**', 'package.json'],
           cwd: 'courier-server/'
     concurrent:

@@ -9,8 +9,10 @@ Generate a random token.
         Math.random().toString(36).substr(2)
 
       @generate = () ->
-        Token.__rand__() + Token.__rand__()
-
+        if not Development
+          Token.__rand__() + Token.__rand__()
+        else
+          'development'
 
 Logger
 ------

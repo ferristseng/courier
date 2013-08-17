@@ -73,7 +73,7 @@ Events
 
     class P2PConnection extends EventEmitter
   
-      constructor: () ->
+      constructor: (@channel_name) ->
         @peer = null
         @channel = null
         @status = 0
@@ -90,17 +90,15 @@ Used to create a new connection to send data to
       start: (callback) ->
         self = @
         @peer = WebRTCImplementation.createPeer()
-        @channel = WebRTCImplementation.createChannel(@peer)
-        @peer.createOffer((offer) ->
-          if callback
-            callback()
-            self.changeStatus(1))
+        @channel = WebRTCImplementation.createChannel(@peer, @channel_name)
+        offerCallback = (offer) -> callback(offer) && self.changeStatus(1) if callback
+        WebRTCImplementation.createOffer(@peer, offerCallback)
 
 Used to create a new connection to receive data from
 
     class P2PHostConnection extends P2PConnection
 
-      constructor: () ->
+      constructor: (@channel_name) ->
         super
         @changeStatus(1)
 
@@ -153,9 +151,9 @@ Set the handling of certain events that are expected to be received by the host
       __set_event_handlers__: () ->
         self = @
         @on('channelJoin', (token) -> SignalingChannel.send('host#id', token))
-        SignalingChannel.on('client#new', (e) ->
-          self.clients[e.data] = new P2PClientConnection()
-          self.clients[e.data].start((offer) -> SignalingChannel.send('host#offer', { client: e.data, offer: offer })))
+        SignalingChannel.on('client#new', (c) ->
+          self.clients[c] = new P2PClientConnection(c)
+          self.clients[c].start((offer) -> SignalingChannel.send('host#offer', { client: c, offer: offer })))
 
 Handle the client#new event received by the SignalingChannel
 
@@ -173,7 +171,7 @@ Client
 
       connect: (token) ->
         self = @
-        @host = new P2PHostConnection()
+        @host = new P2PHostConnection(@id)
         SignalingChannel.on('open', () ->
           @join(token)
           @send('client#id', self.id))

@@ -1,3 +1,5 @@
+    emptyFunction = () ->
+
 WebRTCImplementation
 --------------------
 
@@ -66,18 +68,16 @@ Tested with 22.0
         new mozRTCPeerConnection(@servers)
 
       createChannel: (peer, channel, options) ->
-        peer.createDataChannel(channel, options) if peer else null
+        peer.createDataChannel(channel, options)
 
       createOffer: (peer, callback) ->
-        callback = (session) -> WebRTCImplementation.handleSession(peer, session, callback)
+        success = (stream) ->
+          offerCallback = (session) -> WebRTCImplementation.handleSession(peer, session, callback)
+          peer.createOffer(offerCallback, null, FirefoxRTCImplementation.mediaConstraints)
         navigator.mozGetUserMedia({
             audio: true,
             fake: true
-          },
-          (stream) ->
-            peer.addStream(stream)
-            peer.createOffer(callback, null, FirefoxRTCImplementation.mediaConstraints)
-        )
+          }, success, emptyFunction)
 
       handleOffer: (offer, callback) ->
         peer = createPeer()
@@ -85,15 +85,13 @@ Tested with 22.0
         peer
 
       createAnswer: (peer, callback) ->
-        callback = (session) -> WebRTCImplementation.handleSession(peer, session, callback)
+        success = (stream) ->
+          offerCallback = (session) -> WebRTCImplementation.handleSession(peer, session, callback)
+          peer.createAnswer(offerCallback, null, FirefoxRTCImplementation.mediaConstraints)
         navigator.mozGetUserMedia({
             audio: true,
             fake: true
-          },
-          (stream) ->
-            peer.addStream(stream)
-            peer.createAnswer(callback, null, FirefoxRTCImplementation.mediaConstraints)
-        )
+          }, success, emptyFunction)
 
       handleAnswer: (peer, answer) ->
         peer.setRemoteDescription(new mozRTCSessionDescription())
@@ -123,13 +121,14 @@ Tested with 28.0.1500.71
       createPeer: () ->
         peer = new webkitRTCPeerConnection(@servers, ChromeRTCImplementation.config)
         peer.onicecandidate = @onicecandidate
+        peer
 
       createChannel: (peer, channel, options) ->
         options = { reliable: false } if not options
         peer.createDataChannel(channel, options)
 
       createOffer: (peer, callback) ->
-        callback = (session) -> WebRTCImplementation.handleOffer(peer, session, callback)
+        callback = (session) -> WebRTCImplementation.handleSession(peer, session, callback)
         peer.createOffer(callback, null, ChromeRTCImplementation.mediaConstraints)
 
       handleOffer: (offer) ->
@@ -137,7 +136,7 @@ Tested with 28.0.1500.71
         peer
 
       createAnswer: (peer, callback) ->
-        callback = (session) -> WebRTCImplementation.handleOffer(peer, session, callback)
+        callback = (session) -> WebRTCImplementation.handleSession(peer, session, callback)
         peer.createAnswer(callback, null, ChromeRTCImplementation.mediaConstraints)
 
       handleAnswer: (peer, answer) ->
@@ -145,10 +144,6 @@ Tested with 28.0.1500.71
 
       addIceCandidate: (peer, candidate) ->
         peer.addIceCandidate(new RTCIceCandidate(candidate))
-
-*An Empty Function that does nothing!*
-
-    emptyFunction: () ->
 
 *Globally set the implementation based on the detected browser.* 
 

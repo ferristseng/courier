@@ -25,8 +25,6 @@ Logger
         if window.console
           console.log("#{@cls} -> #{msg}")
 
-    logger = new Logger('Util')
-
 EventEmitter
 ------------
 
@@ -36,21 +34,21 @@ EventEmitter
         @handlers = {}
 
       on: (key, handler) ->
-        if key not in @handlers
+        if key not of @handlers
           @handlers[key] = []
-        @handlers[key].push(handler) - 1
+        @handlers[key].push(handler)
+        @handlers[key].length - 1
 
       once: (key, handler) ->
         index = @on(key, handler)
-        @on(key, () -> @handlers[key].splice(index, 2))
+        @on(key, () => @handlers[key].splice(index, 2))
 
       trigger: (key) ->
-        logger.log("Triggered #{key}!")
         @__execute_handlers__.apply(this, arguments)
 
       __execute_handlers__: (key, data) ->
         if key of @handlers
-          n.apply(this, Array.prototype.slice.call(arguments, 1))  for n in @handlers[key]
+          n.apply(this, Array.prototype.slice.call(arguments, 1)) for n in @handlers[key]
 
 Put all util objects in the global scope
 

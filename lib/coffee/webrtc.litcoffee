@@ -61,7 +61,7 @@ Tested with 22.0
       @mediaConstraints:
         optional: [],
         mandatory:
-          OfferToReceiveAudio: true,
+          OfferToReceiveAudio: true
           OfferToReceiveVideo: true
         
       createPeer: () ->
@@ -80,8 +80,11 @@ Tested with 22.0
           }, success, emptyFunction)
 
       handleOffer: (offer, callback) ->
-        peer = createPeer()
-        peer.ondatachannel = (e) -> peer.channel = e.channel
+        peer = @createPeer()
+        peer.setRemoteDescription(new mozRTCSessionDescription(offer))
+        peer.ondatachannel = (e) ->
+          peer.channel = e.channel
+          callback(peer.channel)
         peer
 
       createAnswer: (peer, callback) ->
@@ -94,7 +97,7 @@ Tested with 22.0
           }, success, emptyFunction)
 
       handleAnswer: (peer, answer) ->
-        peer.setRemoteDescription(new mozRTCSessionDescription())
+        peer.setRemoteDescription(new mozRTCSessionDescription(answer))
 
       addIceCandidate: (peer, candidate) ->
         peer.addIceCandidate(new mozRTCIceCandidate(candidate))
@@ -124,14 +127,15 @@ Tested with 28.0.1500.71
         peer
 
       createChannel: (peer, channel, options) ->
-        options = { reliable: false } if not options
+        options = {} if not options              # 
+        options.reliable = false                 # Chrome does not support reliable data transfer
         peer.createDataChannel(channel, options)
 
       createOffer: (peer, callback) ->
         callback = (session) -> WebRTCImplementation.handleSession(peer, session, callback)
         peer.createOffer(callback, null, ChromeRTCImplementation.mediaConstraints)
 
-      handleOffer: (offer) ->
+      handleOffer: (offer, callback) -> # The callback will not be used
         peer = @createPeer()
         peer
 

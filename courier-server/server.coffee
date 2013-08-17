@@ -14,61 +14,69 @@ logger = require('./lib/logger')
 
 # User joins a room
 
-server.on('join', (room, ws) ->
-  if not ws.room.courierClients
+server.on 'join', (room, ws) ->
+  if not ws.room.courierClients?
     ws.room.courierClients = {}
-  logger.log("a user joined #{room}"))
+  logger.log("a user joined #{room}")
 
 # User disconnects
 
-server.on('disconnect', (ws) ->
-  logger.log("a user left: #{ws.room.name}"))
+server.on 'disconnect', (ws) ->
+  logger.log("a user left: #{ws.room.name}")
+  if ws.room.clients.length == 0
+    logger.log("closing room: #{ws.room.name}")
+    delete server.rooms[ws.room.name]
 
 # Courier Events
 # ~~~~~~~~~~~~~~
 
-# Client joins
+# client#id
+#   - Client joins
 
-server.on('client#id', (data, ws) ->
+server.on 'client#id', (data, ws) ->
   ws.room.courierClients[data] = ws
   if ws.room.host
     ws.room.host.send('client#new', data)
-  logger.log("new client: (#{data}, #{ws.room.name})"))
+  logger.log("new client: (#{data}, #{ws.room.name})")
 
-# Client disconnects
+# client#close
+#   - Client disconnects
 
-server.on('client#close', (data, ws) ->
+server.on 'client#close', (data, ws) ->
   delete ws.room.courierClients[data]
-  logger.log("closing client: (#{data}, #{ws.room.name})"))
+  logger.log("closing client: (#{data}, #{ws.room.name})")
 
-# Host joins
+# client#answer
+#   - Client responds to host offer
 
-server.on('host#id', (data, ws) ->
+server.on 'client#answer', (data, ws) ->
+  logger.log("received answer from: (#{data.client}, #{ws.room.name})")
+  if ws.room.host
+    ws.room.host.send('client#answer', data)
+
+# host#id
+#   - Host joins
+
+server.on 'host#id', (data, ws) ->
   if ws.room.name == data
     ws.room.host = ws
-    logger.log("new host: (#{data}, #{ws.room.name})"))
+    logger.log("new host: (#{data}, #{ws.room.name})")
 
-# Host sends offer
+# host#offer
+#   - Host sends offer
 
-server.on('host#offer', (data, ws) ->
-  if data.client in ws.room.courierClients
+server.on 'host#offer', (data, ws) ->
+  logger.log("new host offer for: #{data.client}")
+  if data.client of ws.room.courierClients
     ws.room.courierClients[data.client].send('host#offer', data.offer)
-  logger.log("new host offer: #{data.client}"))
+    logger.log("sent '#{data.client}' offer")
 
 # WebRTC Events
 # ~~~~~~~~~~~~~
 
-server.on('offer', (data, ws) ->
-  logger.log("offer: #{data}")
-  ws.broadcast('offer', data))
-
-server.on('answer', (data, ws) ->
-  logger.log("answer: #{data}")
-  ws.broadcast('answer', data))
-
-server.on('icecandidate', (data, ws) ->
+server.on 'icecandidate', (data, ws) ->
   logger.log("icecandidate: #{data}")
-  ws.broadcast('icecandidate', data))
+  ws.broadcast('icecandidate', data)
 
 module.exports = server
 

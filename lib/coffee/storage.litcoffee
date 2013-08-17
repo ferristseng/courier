@@ -36,18 +36,17 @@ Use indexedDB to store file chunks (only Firefox supports storing blobs with ind
       @DB_STORE = 'files'
 
       constructor: () ->
-        self      = @
         @db       = null
         @onready  = null
         @request  = indexedDB.open(IndexedDBFileStorage.DB_NAME)
-        @request.onsuccess = (event) ->
-          self.db = event.target.result
-          self.onready() if self.onready?
-        @request.onupgradeneeded = (event) ->
-          self.db = event.target.result
-          self.db.createObjectStore(IndexedDBFileStorage.DB_STORE, { 'keyPath': 'id' })
+        @request.onsuccess = (event) =>
+          @db = event.target.result
+          @onready() if @onready?
+        @request.onupgradeneeded = (event) =>
+          @db = event.target.result
+          @db.createObjectStore(IndexedDBFileStorage.DB_STORE, { 'keyPath': 'id' })
              .createIndex('name', 'name', { unique: false })
-          self.onready() if self.onready?
+          @onready() if @onready?
 
       getObjectStore: (type) ->
         type ?= 'read'
@@ -83,7 +82,7 @@ Use indexedDB to store file chunks (only Firefox supports storing blobs with ind
           try
             r = @getObjectStore().index('name').openCursor(IDBKeyRange.only(f_name))
             allChunks = []
-            request.onsuccess = (event) ->
+            request.onsuccess = (event) =>
               cursor = event.target.result
               if cursor
                 allChunks.push(cursor.value.data)

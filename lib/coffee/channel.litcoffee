@@ -17,6 +17,14 @@ These should be exist, but do not have to be implemented.
       join: () ->
       send: () ->
 
+Rewrite the trigger method to use the logger
+
+      __trigger__: SignalingChannel.prototype.trigger
+
+      trigger: (e) ->
+        logger.log("Triggered #{e}!")
+        @__trigger__(e)
+
 WebsocketChannel
 ================
 
@@ -25,16 +33,15 @@ Signaling channel implemented with Websockets.
     class WebsocketChannel extends SignalingChannel
     
       constructor: () ->
-        self = @
         @ws = new WebSocket('ws://localhost:8000')
-        @ws.onopen = () -> self.__onopen__()
-        @ws.onmessage = (e) -> self.__onmessage__(e)
-        @ws.onclose = () -> self.__onclose__()
+        @ws.onopen = () => @__onopen__()
+        @ws.onmessage = (e) => @__onmessage__(e)
+        @ws.onclose = () => @__onclose__()
         super
    
-      __send__: (event, data) ->
+      __send__: (event, data, callback) ->
         logger.log("Sending [event] #{event}!")
-        @ws.send(JSON.stringify({ type: event, data: data}))
+        @ws.send(JSON.stringify({ type: event, data: data}), callback)
 
       __onopen__: () ->
         @trigger('open')
@@ -51,8 +58,8 @@ Signaling channel implemented with Websockets.
       join: (room) ->
         @__send__('join', room)
 
-      send: (event, data) ->
-        @__send__(event, data)
+      send: (event, data, callback) ->
+        @__send__(event, data, callback)
 
 PrivateChannel
 ===============

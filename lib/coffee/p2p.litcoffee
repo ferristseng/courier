@@ -4,7 +4,6 @@
 
     logger = new Logger('P2P')
 
-
 ChunkedFile
 -----------
 
@@ -42,9 +41,16 @@ Events:
     class P2PMember extends EventEmitter
 
       constructor: () ->
-        self = @
-        FileStorage.onready = () -> self.trigger('storageReady')
+        FileStorage.onready = () => @trigger('storageReady')
         super
+      
+Rewrite the trigger method to use a logger
+
+      __trigger__: P2PMember.prototype.trigger
+
+      trigger: (e) ->
+        logger.log("Triggered #{e}!")
+        @__trigger__(e)
 
 P2PConnection
 -------------
@@ -55,9 +61,15 @@ A P2P connection undergoes a number of statuses:
 
 The statuses differ based on the vantage point of the user
 
+These DO have knowledge of the PROTOCOL used on the SignalingChannel!
+
 Events
 
-  * statusChange
+  * statusChange#[0-4]
+  * channelOpen
+  * channelMessage
+  * channelClose
+  * channelError
 
     ###
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -65,34 +77,56 @@ Events
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     0 INITIALIZING
     1 SENDING OFFER     |        WAITING OFFER
-    2 WAITING ANSWER    |          SENT ANSWER
-    3 RECEIVED ANSWER   |       
+    2 WAITING ANSWER    |       RECEIVED OFFER
+    3 RECEIVED ANSWER   |       SENDING ANSWER 
     4 OPENED CHANNEL    |       OPENED CHANNEL
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     ###
 
     class P2PConnection extends EventEmitter
-  
+
+Setup signaling channel to emit event names for specific client ids. DO ONCE!
+
       constructor: (@channel_name) ->
+        super
         @peer = null
         @channel = null
         @status = 0
-        super
 
-      changeStatus: (s) ->
+      setChannelEvents: () ->
+        @channel.onopen    = () => @changeStatus(4) && @trigger('channelOpen')
+        @channel.onmessage = () => @trigger('channelMessage')
+        @channel.onclose   = () => @trigger('channelClose')
+        @channel.onerror   = () => @trigger('channelError')
+
+      changeStatus: (s, d) ->
         @status = s
-        @trigger('statusChange', s)
+        @trigger("statusChange##{s}", d)
+
+      send: (d) ->
+        if @channel && @status == 4
+          @channel.send(d)
+
+      __trigger__: P2PConnection.prototype.trigger
+
+      trigger: (e) ->
+        logger.log("Triggered #{e}!")
+        @__trigger__(e)
 
 Used to create a new connection to send data to
 
     class P2PClientConnection extends P2PConnection
 
-      start: (callback) ->
-        self = @
-        @peer = WebRTCImplementation.createPeer()
-        @channel = WebRTCImplementation.createChannel(@peer, @channel_name)
-        offerCallback = (offer) -> callback(offer) && self.changeStatus(1) if callback
-        WebRTCImplementation.createOffer(@peer, offerCallback)
+      constructor: (@channel_name) ->
+        super
+        @peer     = WebRTCImplementation.createPeer()
+        @channel  = WebRTCImplementation.createChannel(@peer, @channel_name)
+        @setChannelEvents
+        WebRTCImplementation.createOffer(@peer, (o) => @changeStatus(1, o))
+
+      receivedAnswer: (answer) ->
+        WebRTCImplementation.handleAnswer(answer)
+        @changeStatus(3)
 
 Used to create a new connection to receive data from
 
@@ -100,12 +134,14 @@ Used to create a new connection to receive data from
 
       constructor: (@channel_name) ->
         super
-        @changeStatus(1)
+        SignalingChannel.on('open', () =>
+          @changeStatus(1)
+          SignalingChannel.send('client#id', @channel_name))
+        SignalingChannel.once('host#offer', (offer) => @receivedOffer(offer) && @changeStatus(2))
 
-      start: (offer) ->
+      receivedOffer: (offer) ->
         @peer = WebRTCImplementation.handleOffer(offer)
-        WebRTCImplementation.createAnswer(@peer, (a) -> SignalingChannel.send(a))
-        @changeStatus(2)
+        WebRTCImplementation.createAnswer(@peer, (answer) => @changeStatus(3, answer))
 
 Host
 ====
@@ -118,22 +154,21 @@ Events:
     class Host extends P2PMember
 
       constructor: () ->
-        self = @
         @clients = {}
         @reader = new FileReader()
         @readChunk = (start, end) -> @reader.readAsArrayBuffer(@file.slice(start, end))
-        @reader.onloadend = (event) ->
-          self.file.read++
-          self.trigger('readProgress', self.file.read, self.file.chunks)
-          if self.file.end()
+        @reader.onloadend = (event) =>
+          @file.read++
+          @trigger('readProgress', @file.read, @file.chunks)
+          if @file.end()
             token = Token.generate()
             SignalingChannel.join(token)
-            self.__set_event_handlers__()
-            self.trigger('channelJoin', token)
-            self.trigger('fileEnd', self.file, token)
+            @__set_event_handlers__()
+            @trigger('channelJoin', token)
+            @trigger('fileEnd', @file, token)
           else
-            #FileStorage.storeChunk(event.target.result, self.file.read - 1, self.file.name, self.file.type)
-            self.readChunk(self.file.read * CHUNK_SIZE, CHUNK_SIZE * (self.file.read + 1))
+            #FileStorage.storeChunk(event.target.result, @file.read - 1, @file.name, @file.type)
+            @readChunk(@file.read * CHUNK_SIZE, CHUNK_SIZE * (@file.read + 1))
         super
 
 Read in the file as a bunch of chunks. Store the chunks in local storage. The way the chunks are stored is determined by the storage method.
@@ -147,13 +182,14 @@ Set the handling of certain events that are expected to be received by the host
 
   * channelJoin: When the host joins the channel, send the token of the host to initialize the user as the host on the server.
   * client#new:  When the host is notified of a new client, send that specific client an offer via the SignalingChannel
+  * client#answer: When the host is notified that the client has responded, process the answer according to the protocol (done in P2PClientConnection)
 
       __set_event_handlers__: () ->
-        self = @
         @on('channelJoin', (token) -> SignalingChannel.send('host#id', token))
-        SignalingChannel.on('client#new', (c) ->
-          self.clients[c] = new P2PClientConnection(c)
-          self.clients[c].start((offer) -> SignalingChannel.send('host#offer', { client: c, offer: offer })))
+        SignalingChannel.on('client#new', (c) =>
+          @clients[c] = new P2PClientConnection(c)
+          @clients[c].on('statusChange#1', (o) -> SignalingChannel.send('host#offer', { client: c, offer: o })))
+        SignalingChannel.once('client#answer', (data) => @clients[data.client].receivedAnswer(data.answer))
 
 Handle the client#new event received by the SignalingChannel
 
@@ -170,11 +206,18 @@ Client
         super
 
       connect: (token) ->
-        self = @
-        @host = new P2PHostConnection(@id)
-        SignalingChannel.on('open', () ->
-          @join(token)
-          @send('client#id', self.id))
+        @connection = new P2PHostConnection(@id)
+        @__set_event_handlers__(token)
+
+Set the channel event handlers 
+
+  * open: send the client id to the SignalingChannel to tell the host that the client wishes to communicate with the host
+  * statusChange#1: accept the offer
+  * statusChange#2: send the answer over the channel
+
+      __set_event_handlers__: (token) ->
+        @connection.once('statusChange#1', () => SignalingChannel.join(token))
+        @connection.once('statusChange#3', (answer) => SignalingChannel.send('client#answer', { client: @id, answer: answer }))
       
     window.Host = Host
     window.Client = Client

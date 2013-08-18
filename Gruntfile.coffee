@@ -18,7 +18,7 @@ module.exports = (grunt) ->
       options:
         banner: """
                 /*
-                 * <%= pkg.name %>
+                 * <%= pkg.name %> - javascript
                  * <%= pkg.version %>
                  * <%= pkg.author %>
                  * <%= grunt.template.today("yyyy-mm-dd hh:mm") %>
@@ -69,6 +69,37 @@ module.exports = (grunt) ->
         src: ['*.litcoffee'],
         dest: 'lib/js/',
         ext: '.js'
+
+    ###
+    
+    stylus compile task
+    -------------------
+    
+    targets:
+      development: uncompressed
+      production: compressed
+
+    ###
+
+    stylus:
+      options:
+        banner: """
+                /*
+                 * <%= pkg.name %> - stylesheet
+                 * <%= pkg.version %>
+                 * <%= pkg.author %>
+                 * <%= grunt.template.today("yyyy-mm-dd hh:mm") %>
+                 */\n
+                """
+        'include css': true
+      development:
+        files:
+          'assets/css/style.css': ['lib/stylus/*.styl']
+      production:
+        options:
+          compress: true
+          files:
+            'assets/css/style.css': ['lib/stylus/*.styl']
 
     ###
     
@@ -145,6 +176,7 @@ module.exports = (grunt) ->
   grunt.loadNpmTasks('grunt-contrib-watch')
   grunt.loadNpmTasks('grunt-contrib-coffee')
   grunt.loadNpmTasks('grunt-contrib-uglify')
+  grunt.loadNpmTasks('grunt-contrib-stylus')
 
   grunt.registerTask('build:development', ['coffee', 'uglify:development'])
   grunt.registerTask('build:production',  ['coffee', 'uglify:production'])

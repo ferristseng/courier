@@ -23,7 +23,7 @@ Rewrite the trigger method to use the logger
 
       trigger: (e) ->
         logger.log("Triggered #{e}!")
-        @__trigger__(e)
+        @__trigger__.apply(this, arguments)
 
 WebsocketChannel
 ================

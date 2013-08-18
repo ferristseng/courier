@@ -2,6 +2,18 @@ module.exports = (grunt) ->
 
   grunt.initConfig(
     pkg: grunt.file.readJSON('package.json'),
+
+    ###
+    
+    uglify task
+    -----------
+
+    targets:
+      development: keep variables, don't compress
+      production:  compress, mangle, report
+
+    ###
+
     uglify:
       options:
         banner: """
@@ -12,8 +24,10 @@ module.exports = (grunt) ->
                  * <%= grunt.template.today("yyyy-mm-dd hh:mm") %>
                  */\n
                 """
-        mangle: false
-      compress:
+      development:
+        options:
+          beautify: true
+          mangle: false
         files:
           'assets/js/courier.min.js': ['lib/js/detect.js',
                                        'lib/js/util.js',
@@ -23,6 +37,30 @@ module.exports = (grunt) ->
                                        'lib/js/p2p.js'],
           'assets/js/client.min.js':  ['lib/js/client.js'],
           'assets/js/host.min.js':    ['lib/js/host.js']
+      production:
+        options:
+          compress: true
+          mangle: true
+          report: 'gzip'
+        files:
+          'assets/js/courier.min.js': ['lib/js/detect.js',
+                                       'lib/js/util.js',
+                                       'lib/js/storage.js',
+                                       'lib/js/channel.js',
+                                       'lib/js/webrtc.js',
+                                       'lib/js/p2p.js'],
+          'assets/js/client.min.js':  ['lib/js/client.js'],
+          'assets/js/host.min.js':    ['lib/js/host.js']
+
+    ###
+    
+    coffeescript compile task
+    -------------------------
+
+    compile coffeescript to lib/js, where the uglify task will take over
+
+    ###
+
     coffee:
       glob_to_multiple:
         expand: true,
@@ -31,22 +69,70 @@ module.exports = (grunt) ->
         src: ['*.litcoffee'],
         dest: 'lib/js/',
         ext: '.js'
+
+    ###
+    
+    watch (for changes) task
+    ------------------------
+
+    targets:
+      development: recompile coffeescript, use uglify:development task
+      production: recompile coffeescript, use uglify:production task
+
+    ###
+
     watch:
-      coffee:
+      development:
         files: 'lib/**/*.litcoffee',
-        tasks: ['coffee', 'uglify'],
-        options:
-          interrupt: true
+        tasks: ['coffee', 'uglify:development'],
+      production:
+        files: 'lib/**/*.litcoffee',
+        tasks: ['coffee', 'uglify:production'],
+      options:
+        interrupt: true
+
+    ###
+
+    nodemon runner task
+    -------------------
+
+    restarts the nodejs server on changes
+
+    ###
+
     nodemon:
       all:
         options:
           file: 'server.coffee',
           ignored_files: ['node_modules/**', 'package.json'],
           cwd: 'courier-server/'
+
+    ###
+
+    concurrent runner task
+    ----------------------
+
+    runs certain tasks as daemons to allow them to run simultaneously
+
+    ###
+
     concurrent:
-      server: ['nodemon', 'watch']
+      development:
+        tasks: ['nodemon', 'watch:development']
+      production:
+        tasks: ['nodemon', 'watch:production']
       options:
         logConcurrentOutput: true
+
+    ###
+    
+    connect runner task
+    -------------------
+
+    runs a static http server on the root directory
+
+    ###
+
     connect:
       server:
         options:
@@ -60,5 +146,8 @@ module.exports = (grunt) ->
   grunt.loadNpmTasks('grunt-contrib-coffee')
   grunt.loadNpmTasks('grunt-contrib-uglify')
 
-  grunt.registerTask('default', ['coffee', 'uglify'])
-  grunt.registerTask('start', ['connect', 'default', 'concurrent'])
+  grunt.registerTask('build:development', ['coffee', 'uglify:development'])
+  grunt.registerTask('build:production',  ['coffee', 'uglify:production'])
+  grunt.registerTask('default',           ['build:development'])
+  grunt.registerTask('start:development', ['connect', 'build:development', 'concurrent:development'])
+  grunt.registerTask('start:production',  ['connect', 'build:production', 'concurrent:development'])

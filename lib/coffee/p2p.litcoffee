@@ -50,7 +50,7 @@ Rewrite the trigger method to use a logger
 
       trigger: (e) ->
         logger.log("Triggered #{e}!")
-        @__trigger__(e)
+        @__trigger__.apply(this, arguments)
 
 P2PConnection
 -------------
@@ -111,7 +111,7 @@ Setup signaling channel to emit event names for specific client ids. DO ONCE!
 
       trigger: (e) ->
         logger.log("Triggered #{e}!")
-        @__trigger__(e)
+        @__trigger__.apply(this, arguments)
 
 Used to create a new connection to send data to
 

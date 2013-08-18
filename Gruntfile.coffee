@@ -2,6 +2,7 @@ module.exports = (grunt) ->
 
   grunt.initConfig(
     pkg: grunt.file.readJSON('package.json'),
+    env: grunt.option('env') || 'development',
 
     ###
     
@@ -15,12 +16,22 @@ module.exports = (grunt) ->
     ###
 
     uglify:
+      all:
+        'assets/js/courier.min.js': ['lib/js/detect.js',
+                                     'lib/js/util.js',
+                                     'lib/js/storage.js',
+                                     'lib/js/channel.js',
+                                     'lib/js/webrtc.js',
+                                     'lib/js/p2p.js'],
+        'assets/js/client.min.js':  ['lib/js/client.js'],
+        'assets/js/host.min.js':    ['lib/js/host.js']
       options:
         banner: """
                 /*
                  * <%= pkg.name %> - javascript
                  * <%= pkg.version %>
                  * <%= pkg.author %>
+                 * <%= env %>
                  * <%= grunt.template.today("yyyy-mm-dd hh:mm") %>
                  */\n
                 """
@@ -28,29 +39,13 @@ module.exports = (grunt) ->
         options:
           beautify: true
           mangle: false
-        files:
-          'assets/js/courier.min.js': ['lib/js/detect.js',
-                                       'lib/js/util.js',
-                                       'lib/js/storage.js',
-                                       'lib/js/channel.js',
-                                       'lib/js/webrtc.js',
-                                       'lib/js/p2p.js'],
-          'assets/js/client.min.js':  ['lib/js/client.js'],
-          'assets/js/host.min.js':    ['lib/js/host.js']
+        files: "<%= uglify.all %>"
       production:
         options:
           compress: true
           mangle: true
           report: 'gzip'
-        files:
-          'assets/js/courier.min.js': ['lib/js/detect.js',
-                                       'lib/js/util.js',
-                                       'lib/js/storage.js',
-                                       'lib/js/channel.js',
-                                       'lib/js/webrtc.js',
-                                       'lib/js/p2p.js'],
-          'assets/js/client.min.js':  ['lib/js/client.js'],
-          'assets/js/host.min.js':    ['lib/js/host.js']
+        files: "<%= uglify.all %>"
 
     ###
     
@@ -82,6 +77,8 @@ module.exports = (grunt) ->
     ###
 
     stylus:
+      all:
+        'assets/css/style.css': ['lib/stylus/*.styl']
       options:
         banner: """
                 /*
@@ -93,13 +90,11 @@ module.exports = (grunt) ->
                 """
         'include css': true
       development:
-        files:
-          'assets/css/style.css': ['lib/stylus/*.styl']
+        files: "<%= stylus.all %>"
       production:
         options:
           compress: true
-          files:
-            'assets/css/style.css': ['lib/stylus/*.styl']
+        files: "<%= stylus.all %>"
 
     ###
     
@@ -107,18 +102,22 @@ module.exports = (grunt) ->
     ------------------------
 
     targets:
-      development: recompile coffeescript, use uglify:development task
-      production: recompile coffeescript, use uglify:production task
+      coffee:
+        development: recompile coffeescript, use uglify:development task
+        production: recompile coffeescript, use uglify:production task
+      css:
+        development: recompile stylesheets with stylus:development
+        production: recompile stylesheets with stylus:production
 
     ###
 
     watch:
-      development:
-        files: 'lib/**/*.litcoffee',
-        tasks: ['coffee', 'uglify:development'],
-      production:
-        files: 'lib/**/*.litcoffee',
-        tasks: ['coffee', 'uglify:production'],
+      coffee:
+        files: ['lib/**/*.litcoffee'],
+        tasks: ['coffee', 'uglify:<%= env %>']
+      css:
+        files: ['lib/**/*.styl', 'lib/**/*.css'],
+        tasks: ['stylus:<%= env %>']
       options:
         interrupt: true
 
@@ -148,10 +147,8 @@ module.exports = (grunt) ->
     ###
 
     concurrent:
-      development:
-        tasks: ['nodemon', 'watch:development']
-      production:
-        tasks: ['nodemon', 'watch:production']
+      server:
+        tasks: ['nodemon', 'watch:coffee', 'watch:css']
       options:
         logConcurrentOutput: true
 
@@ -178,8 +175,20 @@ module.exports = (grunt) ->
   grunt.loadNpmTasks('grunt-contrib-uglify')
   grunt.loadNpmTasks('grunt-contrib-stylus')
 
-  grunt.registerTask('build:development', ['coffee', 'uglify:development'])
-  grunt.registerTask('build:production',  ['coffee', 'uglify:production'])
+  ###
+  
+  build tasks
+
+  ###
+
+  grunt.registerTask('build:development', ['coffee', 'uglify:development', 'stylus:development'])
+  grunt.registerTask('build:production',  ['coffee', 'uglify:production', 'stylus:production'])
   grunt.registerTask('default',           ['build:development'])
-  grunt.registerTask('start:development', ['connect', 'build:development', 'concurrent:development'])
-  grunt.registerTask('start:production',  ['connect', 'build:production', 'concurrent:development'])
+
+  ###
+
+  service tasks
+
+  ###
+
+  grunt.registerTask('start', ['connect', "build:#{grunt.config.data.env}", 'concurrent:server'])

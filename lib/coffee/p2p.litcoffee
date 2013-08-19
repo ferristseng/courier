@@ -152,9 +152,7 @@ Used to create a new connection to send data to
       prepareForIceCandidate: () ->
         if @peer
           SignalingChannel.on("client[#{@channel_name}]#icecandidate",
-            (d) =>
-              console.log(d.candidate)
-              WebRTCImplementation.addIceCandidate(@peer, d.candidate) if d.candidate)
+            (d) => WebRTCImplementation.addIceCandidate(@peer, d.candidate) if d.candidate)
 
       receivedAnswer: (answer) ->
         if @peer

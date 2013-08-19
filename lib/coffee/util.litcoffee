@@ -25,6 +25,8 @@ Logger
         if window.console
           console.log("#{@cls} -> #{msg}")
 
+    logger = new Logger('Util')
+
 EventEmitter
 ------------
 
@@ -48,7 +50,12 @@ EventEmitter
 
       __execute_handlers__: (key, data) ->
         if key of @handlers
-          n.apply(this, Array.prototype.slice.call(arguments, 1)) for n in @handlers[key]
+          for n in @handlers[key]
+            try
+              n.apply(this, Array.prototype.slice.call(arguments, 1))
+            catch e
+              console.error(e)
+              logger.log("Failed to run handler (#{key}) at #{n}!")
 
 Put all util objects in the global scope
 

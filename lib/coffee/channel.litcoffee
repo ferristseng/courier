@@ -39,9 +39,9 @@ Signaling channel implemented with Websockets.
         @ws.onclose = () => @__onclose__()
         super
    
-      __send__: (event, data, callback) ->
+      __send__: (event, data) ->
         logger.log("Sending [event] #{event}!")
-        @ws.send(JSON.stringify({ type: event, data: data}), callback)
+        @ws.send(JSON.stringify({ type: event, data: data}))
 
       __onopen__: () ->
         @trigger('open')

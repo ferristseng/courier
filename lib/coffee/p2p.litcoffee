@@ -87,13 +87,21 @@ Events
 
 Setup signaling channel to emit event names for specific client ids. DO ONCE!
 
+      SignalingChannel.on('client#answer',
+        (d) -> SignalingChannel.trigger("client[#{d.client}]#answer", d))
+
+      SignalingChannel.on('client#icecandidate',
+        (d) -> SignalingChannel.trigger("client[#{d.client}]#icecandidate", d.candidate))
+
       constructor: (@channel_name) ->
         super
         @peer = null
         @channel = null
         @status = 0
 
-      setChannelEvents: () ->
+      setChannelEvents: (channel) ->
+        if not @channel and channel
+          @channel = channel
         @channel.onopen    = () => @changeStatus(4) && @trigger('channelOpen')
         @channel.onmessage = () => @trigger('channelMessage')
         @channel.onclose   = () => @trigger('channelClose')
@@ -121,12 +129,37 @@ Used to create a new connection to send data to
         super
         @peer     = WebRTCImplementation.createPeer()
         @channel  = WebRTCImplementation.createChannel(@peer, @channel_name)
-        @setChannelEvents
-        WebRTCImplementation.createOffer(@peer, (o) => @changeStatus(1, o))
+        @setChannelEvents()
+        @setPeerEvents()
+        @sendOffer()
+        @prepareForAnswer()
+        @prepareForIceCandidate()
+      
+      sendOffer: () ->
+        if @peer
+          WebRTCImplementation.createOffer(@peer, (o) =>
+            SignalingChannel.send('host#offer', { client: @channel_name, offer: o })
+            @changeStatus(1, o))
+
+      setPeerEvents: (peer) ->
+        if @peer
+          @peer.onicecandidate = (c) => SignalingChannel.send('host#icecandidate', { client: @channel_name, candidate: c })
+
+      prepareForAnswer: () ->
+        if @peer
+          SignalingChannel.once("client[#{@channel_name}]#answer", (d) => @receivedAnswer(d.answer))
+
+      prepareForIceCandidate: () ->
+        if @peer
+          SignalingChannel.on("client[#{@channel_name}]#icecandidate",
+            (d) =>
+              console.log(d.candidate)
+              WebRTCImplementation.addIceCandidate(@peer, d.candidate) if d.candidate)
 
       receivedAnswer: (answer) ->
-        WebRTCImplementation.handleAnswer(answer)
-        @changeStatus(3)
+        if @peer
+          WebRTCImplementation.handleAnswer(@peer, answer)
+          @changeStatus(3)
 
 Used to create a new connection to receive data from
 
@@ -139,9 +172,25 @@ Used to create a new connection to receive data from
           SignalingChannel.send('client#id', @channel_name))
         SignalingChannel.once('host#offer', (offer) => @receivedOffer(offer) && @changeStatus(2))
 
+      sendAnswer: () ->
+        WebRTCImplementation.createAnswer(@peer, (answer) =>
+          SignalingChannel.send('client#answer', { client: @channel_name, answer: answer })
+          @changeStatus(3))
+
+      setPeerEvents: (peer) ->
+        if @peer
+          @peer.onicecandidate = (c) => SignalingChannel.send('client#icecandidate', { client: @channel_name, candidate: c })
+
+      prepareForIceCandidate: () ->
+        if @peer
+          SignalingChannel.on('host#icecandidate', (d) => WebRTCImplementation.addIceCandidate(@peer, d.candidate) if d.candidate)
+
       receivedOffer: (offer) ->
-        @peer = WebRTCImplementation.handleOffer(offer)
-        WebRTCImplementation.createAnswer(@peer, (answer) => @changeStatus(3, answer))
+        @peer = WebRTCImplementation.handleOffer(offer, (channel) => @setChannelEvents(channel))
+        @setPeerEvents()
+        @prepareForIceCandidate()
+        @changeStatus(2)
+        @sendAnswer()
 
 Host
 ====
@@ -186,10 +235,7 @@ Set the handling of certain events that are expected to be received by the host
 
       __set_event_handlers__: () ->
         @on('channelJoin', (token) -> SignalingChannel.send('host#id', token))
-        SignalingChannel.on('client#new', (c) =>
-          @clients[c] = new P2PClientConnection(c)
-          @clients[c].on('statusChange#1', (o) -> SignalingChannel.send('host#offer', { client: c, offer: o })))
-        SignalingChannel.once('client#answer', (data) => @clients[data.client].receivedAnswer(data.answer))
+        SignalingChannel.on('client#new', (c) => @clients[c] = new P2PClientConnection(c))
 
 Handle the client#new event received by the SignalingChannel
 
@@ -217,7 +263,8 @@ Set the channel event handlers
 
       __set_event_handlers__: (token) ->
         @connection.once('statusChange#1', () => SignalingChannel.join(token))
-        @connection.once('statusChange#3', (answer) => SignalingChannel.send('client#answer', { client: @id, answer: answer }))
+        @connection.once('statusChange#4', () => logger.log('Channel Open!'))
+        @connection.once('channelMessage', (msg) -> logger.log("Received payload: #{msg}"))
       
     window.Host = Host
     window.Client = Client

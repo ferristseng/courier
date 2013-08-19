@@ -12,8 +12,11 @@ There is a server component in `courier-server/` that coordinates the WebRTC han
 
 The client-side scripts are located in `lib/coffee/`.
 
+Stylesheets are located in `lib/stylus/`.
+
 Installing
 ----------
 
 Run `npm install` to install dependencies. You also need [grunt-cli](https://github.com/gruntjs/grunt-cli) to test the app locally. Run `grunt start` to compile the assets and to start the static server and websocket server.
 
+To change the environment to production, use `grunt start --env production`.

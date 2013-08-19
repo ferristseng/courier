@@ -99,5 +99,7 @@ Use indexedDB to store file chunks (only Firefox supports storing blobs with ind
     
     if isFirefox
       window.FileStorage = new IndexedDBFileStorage()
+    else if isChrome
+      window.FileStorage = new IndexedDBFileStorage()
     else
       window.FileStorage = undefined

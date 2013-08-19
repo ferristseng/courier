@@ -65,7 +65,8 @@ Tested with 22.0
           OfferToReceiveVideo: true
         
       createPeer: () ->
-        new mozRTCPeerConnection(@servers)
+        peer = new mozRTCPeerConnection(@servers)
+        peer
 
       createChannel: (peer, channel, options) ->
         peer.createDataChannel(channel, options)
@@ -84,7 +85,7 @@ Tested with 22.0
         peer.setRemoteDescription(new mozRTCSessionDescription(offer))
         peer.ondatachannel = (e) ->
           peer.channel = e.channel
-          callback(peer.channel)
+          callback(peer.channel) if callback
         peer
 
       createAnswer: (peer, callback) ->
@@ -123,7 +124,6 @@ Tested with 28.0.1500.71
 
       createPeer: () ->
         peer = new webkitRTCPeerConnection(@servers, ChromeRTCImplementation.config)
-        peer.onicecandidate = @onicecandidate
         peer
 
       createChannel: (peer, channel, options) ->
@@ -132,16 +132,20 @@ Tested with 28.0.1500.71
         peer.createDataChannel(channel, options)
 
       createOffer: (peer, callback) ->
-        callback = (session) -> WebRTCImplementation.handleSession(peer, session, callback)
-        peer.createOffer(callback, null, ChromeRTCImplementation.mediaConstraints)
+        offerCallback = (session) -> WebRTCImplementation.handleSession(peer, session, callback)
+        peer.createOffer(offerCallback, null, ChromeRTCImplementation.mediaConstraints)
 
       handleOffer: (offer, callback) -> # The callback will not be used
         peer = @createPeer()
+        peer.setRemoteDescription(new RTCSessionDescription(offer))
+        peer.ondatachannel = (e) ->
+          peer.channel = e.channel
+          callback(peer.channel) if callback
         peer
 
       createAnswer: (peer, callback) ->
-        callback = (session) -> WebRTCImplementation.handleSession(peer, session, callback)
-        peer.createAnswer(callback, null, ChromeRTCImplementation.mediaConstraints)
+        answerCallback = (session) -> WebRTCImplementation.handleSession(peer, session, callback) && console.log('yoyoyo')
+        peer.createAnswer(answerCallback, null, ChromeRTCImplementation.mediaConstraints)
 
       handleAnswer: (peer, answer) ->
         peer.setRemoteDescription(new RTCSessionDescription(answer))

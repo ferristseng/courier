@@ -54,6 +54,14 @@ server.on 'client#answer', (data, ws) ->
   if ws.room.host
     ws.room.host.send('client#answer', data)
 
+# client#icecandidate
+#   - Client sends ice candidate
+
+server.on 'client#icecandidate', (data, ws) ->
+  logger.log("received client#icecandidate from: (#{data.client}, #{data.candidate})")
+  if ws.room.host
+    ws.room.host.send('client#icecandidate', data)
+
 # host#id
 #   - Host joins
 
@@ -71,12 +79,13 @@ server.on 'host#offer', (data, ws) ->
     ws.room.courierClients[data.client].send('host#offer', data.offer)
     logger.log("sent '#{data.client}' offer")
 
-# WebRTC Events
-# ~~~~~~~~~~~~~
+# host#icecandidate
+#   - Host sends icecandidate
 
-server.on 'icecandidate', (data, ws) ->
-  logger.log("icecandidate: #{data}")
-  ws.broadcast('icecandidate', data)
+server.on 'host#icecandidate', (data, ws) ->
+  logger.log("received host#icecandidate...sending to: (#{data.client}, #{data.candidate})")
+  if data.client of ws.room.courierClients
+    ws.room.courierClients[data.client].send('host#icecandidate', data.candidate)
 
 module.exports = server
 
